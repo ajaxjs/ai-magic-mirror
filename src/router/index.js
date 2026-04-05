@@ -10,6 +10,18 @@ const routes = [
             { path: '/', component: () => import('@/pages/index.vue') },
         ]
     },
+    {
+        path: '/demo/text',
+        component: () => import('@/pages/demo/text.vue'),
+    },
+    {
+        path: '/demo/animate',
+        component: () => import('@/pages/demo/animate.vue'),
+    },
+    {
+        path: '/demo/background',
+        component: () => import('@/pages/demo/background.vue'),
+    },
 ]
 
 const router = createRouter({
