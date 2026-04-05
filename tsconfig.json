@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "moduleResolution": "bundler",
+        "module": "es2020",
+        "baseUrl": ".",
+        "paths": {
+            "@/*": [
+                "./src/*"
+            ]
+        }
+    }
+}
