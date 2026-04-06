@@ -8,6 +8,13 @@ export default defineConfig({
         vue(),
         tailwindcss(),
     ],
+    css: {
+        preprocessorOptions: {
+            scss: {
+                api: 'modern', // Use modern Sass API to avoid deprecation warnings
+            },
+        },
+    },
     resolve: {
         alias: {
             '@': path.resolve(__dirname, './src'),
