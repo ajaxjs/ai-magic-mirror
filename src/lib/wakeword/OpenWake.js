@@ -2,21 +2,28 @@ import mitt from 'mitt';
 
 /**
  *  唤醒词识别(Worker版)
- *  - 初始化模型
-    await wake2.init({
+ * 
+    - 实例化 OpenWake 类
+    const wake = new OpenWake();
+    - 初始化模型
+    await wake.init({
         alexa: 'models/alexa_v0.1.onnx'
     });
     - 图表展示
-    wake2.on('score', e => console.log(e));
+    wake.on('score', e => console.log(e));
     - VAD 事件
-    wake2.on('vad', v => console.log('VAD:', v));
+    wake.on('vad', v => console.log('VAD:', v));
     - 唤醒事件
-    wake2.on('detect', e => console.log('唤醒:', e));
+    wake.on('detect', e => console.log('唤醒:', e));
+    - 语音事件
+    wake.on('speech', () => console.log('speech'));
+    - 语音开始事件
+    wake.on('speechStart', () => console.log('speechStart'));
     - 语音结束事件
-    wake2.on('speechEnd', e => console.log('语音结束:', e));
+    wake.on('speechEnd', () => console.log('speechEnd'));
 
     - 启动识别
-    await wake2.start();
+    await wake.start();
  */
 
 export default class OpenWake {

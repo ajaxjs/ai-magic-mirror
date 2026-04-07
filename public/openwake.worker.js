@@ -18,6 +18,7 @@ let ctx = {
     embedding_buffer: [],
     vadState: { h: null, c: null },
     isSpeechActive: false,
+    utteranceBuffer: [],
     vadHangoverCounter: 0,
     VAD_HANGOVER_FRAMES: 12,
     isCoolingDown: false
@@ -49,7 +50,7 @@ async function init(config) {
             scores: new Array(50).fill(0)
         };
     }
-    
+
     resetState();
 
     postMessage({ type: 'ready' });
@@ -68,6 +69,9 @@ async function processChunk(chunk) {
     const vad = await runVad(chunk);
     postMessage({ type: 'vad', data: vad });
 
+    // 记录上一个状态
+    const prevSpeech = ctx.isSpeechActive;
+
     if (vad) {
         ctx.isSpeechActive = true;
         ctx.vadHangoverCounter = ctx.VAD_HANGOVER_FRAMES;
@@ -75,8 +79,37 @@ async function processChunk(chunk) {
         ctx.vadHangoverCounter--;
         if (ctx.vadHangoverCounter <= 0) {
             ctx.isSpeechActive = false;
-            postMessage({ type: 'speechEnd' });
         }
+    }
+
+    // 边沿检测（核心）
+    if (!prevSpeech && ctx.isSpeechActive) {
+        ctx.utteranceBuffer = [];
+        postMessage({ type: 'speechStart' });
+    }
+
+    // 持续态
+    if (ctx.isSpeechActive) {
+        // 复制一份新的chunk，并发送给主线程
+        ctx.utteranceBuffer.push(new Float32Array(chunk));
+        postMessage({ type: 'speech' });
+    }
+    // 语音结束事件
+    if (prevSpeech && !ctx.isSpeechActive) {
+        postMessage({ type: 'speechEnd' });
+        console.log('speechEnd', ctx.isCoolingDown);
+        // 🔥 拼接音频
+        const totalLength = ctx.utteranceBuffer.reduce((sum, c) => sum + c.length, 0);
+        const merged = new Float32Array(totalLength);
+        let offset = 0;
+        for (const c of ctx.utteranceBuffer) {
+            merged.set(c, offset);
+            offset += c.length;
+        }
+        // 🚀 发出去 - TODO: 可以在激活后触发utterance事件
+        postMessage({ type: 'utterance', data: merged });
+        // 清空缓存
+        ctx.utteranceBuffer = [];
     }
 
     await runInference(chunk);
