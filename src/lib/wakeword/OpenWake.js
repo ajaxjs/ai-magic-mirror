@@ -1,41 +1,38 @@
 import mitt from 'mitt';
 
 /**
- *  唤醒词识别(Worker版)
+ * 唤醒词识别 (Worker版) - 优化后版本
  * 
-    - 实例化 OpenWake 类
-    const wake = new OpenWake();
-    - 初始化模型
-    await wake.init({
-        alexa: 'models/alexa_v0.1.onnx'
-    });
-    - 图表展示
-    wake.on('score', e => console.log(e));
-    - VAD 事件
-    wake.on('vad', v => console.log('VAD:', v));
-    - 唤醒事件
-    wake.on('detect', e => console.log('唤醒:', e));
-    - 语音事件
-    wake.on('speech', () => console.log('speech'));
-    - 语音开始事件
-    wake.on('speechStart', () => console.log('speechStart'));
-    - 语音结束事件
-    wake.on('speechEnd', () => console.log('speechEnd'));
-
-    - 启动识别
-    await wake.start();
+ * 使用示例完全不变：
+ * const wake = new OpenWake();
+ * await wake.init({ alexa: 'models/alexa_v0.1.onnx' });
+ * wake.on('score', e => console.log(e));
+ * wake.on('detect', e => console.log('唤醒:', e));
+ * await wake.start();
  */
 
 export default class OpenWake {
+    /** 静态缓存 AudioWorklet Blob URL，全局只创建一次 */
+    static _workletUrl = null;
+
     constructor(options = {}) {
         this.emitter = mitt();
+        this.options = {
+            workerPath: './openwake.worker.js',
+            ...options
+        };
 
-        this.worker = new Worker(options.workerPath || './openwake.worker.js');
-
+        this.worker = new Worker(this.options.workerPath);
         this.worker.onmessage = (e) => {
             const { type, data } = e.data;
             this.emitter.emit(type, data);
         };
+
+        this.isRunning = false;
+        this.stream = null;
+        this.audioContext = null;
+        this.source = null;
+        this.node = null;
     }
 
     on(type, fn) {
@@ -48,42 +45,80 @@ export default class OpenWake {
             data: { models }
         });
 
-        return new Promise((resolve) => {
-            this.on('ready', resolve);
+        return new Promise((resolve, reject) => {
+            let resolved = false;
+
+            const onReady = () => {
+                if (resolved) return;
+                resolved = true;
+                this.emitter.off('ready', onReady);
+                this.emitter.off('error', onError);
+                resolve();
+            };
+
+            const onError = (err) => {
+                if (resolved) return;
+                resolved = true;
+                this.emitter.off('ready', onReady);
+                this.emitter.off('error', onError);
+                reject(new Error(err || 'Worker init failed'));
+            };
+
+            this.on('ready', onReady);
+            this.on('error', onError);
         });
     }
 
     async start() {
-        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (this.isRunning) {
+            console.warn('[OpenWake] already running');
+            return;
+        }
+
+        this.isRunning = true;
+
+        // 优化：强制 16kHz 单声道 + 关闭不必要的音频处理
+        this.stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                sampleRate: 16000,
+                channelCount: 1,
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false
+            }
+        });
 
         this.audioContext = new AudioContext({ sampleRate: 16000 });
         const source = this.audioContext.createMediaStreamSource(this.stream);
+        this.source = source;
 
-        const processor = `
-            class P extends AudioWorkletProcessor {
-                buffer = new Float32Array(1280);
-                pos = 0;
-                process(inputs) {
-                    const input = inputs[0][0];
-                    if (input) {
-                        for (let i = 0; i < input.length; i++) {
-                            this.buffer[this.pos++] = input[i];
-                            if (this.pos === 1280) {
-                                this.port.postMessage(this.buffer);
-                                this.pos = 0;
+        // 静态缓存 AudioWorklet，只创建一次
+        if (!OpenWake._workletUrl) {
+            const processor = `
+                class P extends AudioWorkletProcessor {
+                    buffer = new Float32Array(1280);
+                    pos = 0;
+                    process(inputs) {
+                        const input = inputs[0][0];
+                        if (input) {
+                            for (let i = 0; i < input.length; i++) {
+                                this.buffer[this.pos++] = input[i];
+                                if (this.pos === 1280) {
+                                    this.port.postMessage(this.buffer);
+                                    this.pos = 0;
+                                }
                             }
                         }
+                        return true;
                     }
-                    return true;
                 }
-            }
-            registerProcessor('p', P);
-        `;
+                registerProcessor('p', P);
+            `;
+            const blob = new Blob([processor], { type: 'application/javascript' });
+            OpenWake._workletUrl = URL.createObjectURL(blob);
+        }
 
-        const blob = new Blob([processor], { type: 'application/javascript' });
-        const url = URL.createObjectURL(blob);
-
-        await this.audioContext.audioWorklet.addModule(url);
+        await this.audioContext.audioWorklet.addModule(OpenWake._workletUrl);
 
         this.node = new AudioWorkletNode(this.audioContext, 'p');
 
@@ -95,11 +130,23 @@ export default class OpenWake {
         };
 
         source.connect(this.node);
-        this.node.connect(this.audioContext.destination);
+        // 开始监听
+        this.emitter.emit('start');
     }
 
     stop() {
+        if (!this.isRunning) return;
+        this.isRunning = false;
+
         this.stream?.getTracks().forEach(t => t.stop());
-        this.audioContext?.close();
+        this.source?.disconnect();
+        this.node?.disconnect();
+
+        this.audioContext?.close().catch(() => {});
+        
+        this.stream = null;
+        this.source = null;
+        this.node = null;
+        this.audioContext = null;
     }
 }
