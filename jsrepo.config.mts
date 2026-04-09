@@ -5,6 +5,6 @@ export default defineConfig({
     registries: [],
     // configure where stuff goes here
     paths: {
-		component: './src/components/bits'
+		component: './src/renderer/components/bits'
 	},
 });

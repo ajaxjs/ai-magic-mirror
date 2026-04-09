@@ -45,10 +45,13 @@
 		"vite": "^5.4.21"
 	},
 	"dependencies": {
+		"@ai-sdk/alibaba": "^1.0.17",
 		"@types/three": "^0.183.1",
 		"@vueuse/core": "^14.2.1",
+		"ai": "^6.0.154",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
+		"dotenv": "^17.4.1",
 		"electron-squirrel-startup": "^1.0.1",
 		"face-api.js": "^0.22.2",
 		"gsap": "^3.14.2",

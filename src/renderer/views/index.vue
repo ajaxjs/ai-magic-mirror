@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import GridLayout from '@/components/layout/grid/GridLayout.vue'
-import GridItem from '@/components/layout/grid/GridItem.vue'
-import Button from '@/components/ui/button/Button.vue';
+import GridLayout from '../components/layout/grid/GridLayout.vue'
+import GridItem from '../components/layout/grid/GridItem.vue'
+import Button from '../components/ui/button/Button.vue';
 
 function speak(text: string) {
     const utterance = new SpeechSynthesisUtterance(text);

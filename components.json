@@ -4,17 +4,17 @@
     "typescript": true,
     "tailwind": {
         "config": "",
-        "css": "src/styles/globals.css",
+        "css": "src/renderer/styles/globals.css",
         "baseColor": "neutral",
         "cssVariables": true,
         "prefix": ""
     },
     "aliases": {
-        "components": "@/components",
-        "composables": "@/composables",
-        "utils": "@/lib/utils",
-        "ui": "@/components/ui",
-        "lib": "@/lib"
+        "components": "@/renderer/components",
+        "composables": "@/renderer/composables",
+        "utils": "@/renderer/lib/utils",
+        "ui": "@/renderer/components/ui",
+        "lib": "@/renderer/lib"
     },
     "iconLibrary": "lucide"
 }
