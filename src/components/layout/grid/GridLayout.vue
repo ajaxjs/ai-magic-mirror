@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 布局参考：https://grid.layoutit.com/
-import { computed } from 'vue'
+import { computed } from 'vue';
 
 const props = defineProps({
     cols: { type: Number, default: 12 },

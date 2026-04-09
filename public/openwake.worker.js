@@ -21,9 +21,10 @@ let ctx = {
     utteranceBuffer: [],
     vadHangoverCounter: 0,
     VAD_HANGOVER_FRAMES: 12,
-    isCoolingDown: false,   // 防抖
+    isCoolingDown: false,   // 是否正在冷却中
     isAwake: false, // 是否被唤醒
     awakeTime: 5000, // 唤醒超时时间
+    chatNumber: 0, // 会话编号
 };
 
 // 唤醒定时器
@@ -102,38 +103,42 @@ async function processChunk(chunk) {
     }
 
     // 边沿检测
-    if (!prevSpeech && ctx.isSpeechActive) {
+    if (!prevSpeech && ctx.isSpeechActive && ctx.isAwake) {
         ctx.utteranceBuffer = [];
-        if (ctx.isAwake) {
-            postMessage({ type: 'speechStart' });
-            // 开始说话-清除休眠定时器
-            clearTimeout(awakeTimer);
-        }
+        postMessage({ type: 'speechStart' });
+        // 开始说话-清除休眠定时器
+        clearTimeout(awakeTimer);
     }
 
-    if (ctx.isSpeechActive) {
+    if (ctx.isSpeechActive && ctx.isAwake) {
         ctx.utteranceBuffer.push(new Float32Array(chunk));
         postMessage({ type: 'speech' });
     }
 
-    if (prevSpeech && ctx.isAwake && !ctx.isSpeechActive) {
+    if (prevSpeech && !ctx.isSpeechActive && ctx.isAwake) {
         postMessage({ type: 'speechEnd' });
         // 说话结束-设置休眠定时器
         awakeTimer = setTimeout(() => {
             ctx.isAwake = false;
+            // 休眠后重置会话编号
+            ctx.chatNumber = 0;
             postMessage({ type: 'sleep' });
         }, ctx.awakeTime);
 
-        // 拼接完整 utterance
-        const totalLength = ctx.utteranceBuffer.reduce((sum, c) => sum + c.length, 0);
-        const merged = new Float32Array(totalLength);
-        let offset = 0;
-        for (const c of ctx.utteranceBuffer) {
-            merged.set(c, offset);
-            offset += c.length;
+        // 拼接完整 utterance (唤醒词不发送)
+        if (ctx.chatNumber > 0) {
+            const totalLength = ctx.utteranceBuffer.reduce((sum, c) => sum + c.length, 0);
+            const merged = new Float32Array(totalLength);
+            let offset = 0;
+            for (const c of ctx.utteranceBuffer) {
+                merged.set(c, offset);
+                offset += c.length;
+            }
+            postMessage({ type: 'utterance', data: merged });
+            ctx.utteranceBuffer = [];
         }
-        postMessage({ type: 'utterance', data: merged });
-        ctx.utteranceBuffer = [];
+        // 会话编号增加
+        ctx.chatNumber += 1;
     }
 
     await runInference(chunk);
@@ -214,26 +219,52 @@ async function runInference(chunk) {
 
 async function runClassifier(input) {
     const tensor = new ort.Tensor('float32', input, [1, 16, 96]);
-    // TODO: 改为并行推理
-    for (const name in ctx.models) {
-        const m = ctx.models[name];
-        const res = await m.session.run({
-            [m.session.inputNames[0]]: tensor
+
+    // 并行跑所有模型
+    const results = await Promise.all(
+        Object.entries(ctx.models).map(async ([name, m]) => {
+            const res = await m.session.run({
+                [m.session.inputNames[0]]: tensor
+            });
+
+            const score = res[m.session.outputNames[0]].data[0];
+
+            // 发送实时分数（不影响主逻辑）
+            postMessage({ type: 'score', data: { name, score } });
+
+            return { name, score };
+        })
+    );
+
+    // 找最高分模型（避免并发触发）
+    let best = null;
+    for (const r of results) {
+        if (!best || r.score > best.score) {
+            best = r;
+        }
+    }
+
+    // =========================
+    // ✅ 触发逻辑（带防抖）
+    // =========================
+    if (
+        best &&
+        best.score > 0.5 &&
+        ctx.isSpeechActive &&
+        !ctx.isCoolingDown
+    ) {
+        ctx.isCoolingDown = true;
+        ctx.isAwake = true;
+
+        postMessage({
+            type: 'awake',
+            data: best
         });
 
-        const score = res[m.session.outputNames[0]].data[0];
-        // 打印每个模型得分
-        postMessage({ type: 'score', data: { name, score } });
-
-        if (score > 0.5 && ctx.isSpeechActive && !ctx.isCoolingDown) {
-            ctx.isCoolingDown = true;
-            ctx.isAwake = true;
-            postMessage({ type: 'awake', data: { name, score } });
-
-            setTimeout(() => {
-                ctx.isCoolingDown = false;
-            }, 2000);
-        }
+        // 防抖（冷却时间）
+        setTimeout(() => {
+            ctx.isCoolingDown = false;
+        }, 2000);
     }
 }
 

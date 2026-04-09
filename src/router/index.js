@@ -1,18 +1,18 @@
 import { createWebHashHistory, createRouter } from 'vue-router'
 
 const routes = [
-    { path: '/', component: () => import('@/pages/index.vue') },
+    { path: '/', component: () => import('@/views/index.vue') },
     {
         path: '/demo/text',
-        component: () => import('@/pages/demo/text.vue'),
+        component: () => import('@/views/demo/text.vue'),
     },
     {
         path: '/demo/animate',
-        component: () => import('@/pages/demo/animate.vue'),
+        component: () => import('@/views/demo/animate.vue'),
     },
     {
         path: '/demo/background',
-        component: () => import('@/pages/demo/background.vue'),
+        component: () => import('@/views/demo/background.vue'),
     },
 ]
 

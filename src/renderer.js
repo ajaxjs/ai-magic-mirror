@@ -32,13 +32,16 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import { createPinia } from 'pinia'
 import router from './router'
-import { useWakeMonitor } from './lib/wakeword/wake.js'
-
-useWakeMonitor()    // 当前仅测试用
+import WakePlugin from './composables/useAwake.js'
+// import { useWakeMonitor } from './lib/wakeword/wake.js'
+// useWakeMonitor()    // 当前仅测试用
 
 const pinia = createPinia()
 
+
 const app = createApp(App)
+
 app.use(pinia)
+app.use(WakePlugin)
 app.use(router)
 app.mount('#app');

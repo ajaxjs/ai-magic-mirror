@@ -10,7 +10,7 @@ export async function useWakeMonitor() {
     wake.on('start', () => console.log('✅ 监听已启动'));
     //wake.on('score', e => console.log('模型得分:', e));
     //wake.on('vad', v => console.log('VAD:', v));
-    wake.on('speech', () => console.log('speech'));
+    //wake.on('speech', () => console.log('speech'));
     wake.on('awake', (data) => console.log('✅ 已唤醒', data));
     wake.on('sleep', () => console.log('💤 已休眠'));
 
