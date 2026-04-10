@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import ttsHandle from './main/services/tts.js';
@@ -34,8 +34,15 @@ const createWindow = () => {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
   createWindow();
-  console.log('test TTS')
-  await ttsHandle();
+  // 初始化 TTS 服务
+  // await ttsHandle();
+  
+  ipcMain.on('set-title', (event, title) => {
+    const webContents = event.sender
+    const win = BrowserWindow.fromWebContents(webContents)
+    win.setTitle(title)
+    console.log('new title', title)
+  })
 
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
