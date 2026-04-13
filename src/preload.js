@@ -12,5 +12,6 @@ console.log('Preload script loaded');
 
 // Expose APIs to the renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
+  sendVoice: (audio) => ipcRenderer.send('send-voice', audio),
   setTitle: (title) => ipcRenderer.send('set-title', title)
 });

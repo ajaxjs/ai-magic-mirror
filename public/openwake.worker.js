@@ -126,17 +126,21 @@ async function processChunk(chunk) {
         }, ctx.awakeTime);
 
         // 拼接完整 utterance (唤醒词不发送)
-        if (ctx.chatNumber > 0) {
-            const totalLength = ctx.utteranceBuffer.reduce((sum, c) => sum + c.length, 0);
-            const merged = new Float32Array(totalLength);
-            let offset = 0;
-            for (const c of ctx.utteranceBuffer) {
-                merged.set(c, offset);
-                offset += c.length;
-            }
-            postMessage({ type: 'utterance', data: merged });
-            ctx.utteranceBuffer = [];
+        const totalLength = ctx.utteranceBuffer.reduce((sum, c) => sum + c.length, 0);
+        const merged = new Float32Array(totalLength);
+        let offset = 0;
+        for (const c of ctx.utteranceBuffer) {
+            merged.set(c, offset);
+            offset += c.length;
         }
+        postMessage({
+            type: 'utterance',
+            data: {
+                data: merged,
+                index: ctx.chatNumber
+            }
+        });
+        ctx.utteranceBuffer = [];
         // 会话编号增加
         ctx.chatNumber += 1;
     }

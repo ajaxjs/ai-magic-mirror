@@ -40,7 +40,9 @@ export const useAwake = async () => {
         });
         // 监听完整语音段事件
         wake.on('utterance', audio => {
-            console.log('完整语音段长度：', audio.length)
+            console.log('完整语音段长度：', audio)
+            // 发送完整语音段到主进程
+            electronAPI.sendVoice(audio);
         });
 
         await wake.init({
