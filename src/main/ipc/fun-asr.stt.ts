@@ -75,7 +75,7 @@ async function createWebSocketConnection(event: IpcMainEvent, audioData: any) {
     // 接收消息处理
     ws.on('message', (data) => {
         try {
-            console.log('---收到消息:', data.toString());
+            // console.log('---收到消息:', data.toString());
             const message = JSON.parse(data.toString());
             switch (message.header.event) {
                 case 'task-started':
@@ -250,6 +250,10 @@ async function createWebSocketConnection(event: IpcMainEvent, audioData: any) {
         
         // 写入音频数据
         Buffer.from(samples.buffer).copy(wavBuffer, 44);
+
+        // 写入文件
+        fs.writeFileSync('audio.wav', wavBuffer);
+        console.log(`❗音频文件已保存为 audio.wav (大小: ${samples.byteLength} 字节，上线删除)`);
         
         return wavBuffer;
     }
