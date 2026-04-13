@@ -1,6 +1,7 @@
 import fs from 'fs';
-import WS from 'ws';
+import WebSocket from 'ws';
 import path from 'path';
+
 import { randomUUID } from 'crypto';
 import { ipcMain } from 'electron/main';
 import { app } from 'electron';
@@ -57,7 +58,7 @@ async function createWebSocketConnection(event: IpcMainEvent, audioData: any) {
     const TASK_ID = randomUUID().replace(/-/g, '').slice(0, 32);
 
     // 创建WebSocket客户端
-    const ws = new WS(url, {
+    const ws = new WebSocket(url, {
         headers: {
             Authorization: `bearer ${apiKey}`
         }
@@ -74,7 +75,7 @@ async function createWebSocketConnection(event: IpcMainEvent, audioData: any) {
     // 接收消息处理
     ws.on('message', (data) => {
         try {
-            // console.log('---收到消息:', data.toString());
+            console.log('---收到消息:', data.toString());
             const message = JSON.parse(data.toString());
             switch (message.header.event) {
                 case 'task-started':
@@ -83,7 +84,7 @@ async function createWebSocketConnection(event: IpcMainEvent, audioData: any) {
                     sendAudioStream();
                     break;
                 case 'result-generated':
-                    console.log('识别结果：', message.payload.output.sentence.text);
+                    console.log('-识别结果：', message.payload.output.sentence.text);
                     // 将识别结果返回给前端
                     event.reply('asr-result', {
                         text: message.payload.output.sentence.text,
